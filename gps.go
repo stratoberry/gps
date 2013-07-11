@@ -13,8 +13,10 @@ import (
 type Device struct {
   file         *os.File
   reader       *bufio.Reader
+  open         bool
   Fix, nextFix *GPSFix
 
+  // Fixes will receive new GPS fixes. This channel is unbuffered.
   Fixes chan *GPSFix
 }
 
@@ -29,10 +31,16 @@ func (g *GPSFix) isComplete() bool {
   return g.Quality != 0 && g.Satellites != 0 && g.Lat != 0.0 && g.Lon != 0.0 && g.Alt != 0.0
 }
 
+// Open tries to access the specified device path
 func Open(path string) (dev *Device, err error) {
   dev = &Device{}
   dev.file, err = os.Open(path)
+  if err != nil {
+    return
+  }
+
   dev.reader = bufio.NewReader(dev.file)
+  dev.open = true
 
   dev.Fix = &GPSFix{}
   dev.nextFix = &GPSFix{}
@@ -40,12 +48,28 @@ func Open(path string) (dev *Device, err error) {
   return
 }
 
-func (d *Device) Watch() (done chan bool) {
-  done = make(chan bool)
+// Watch will spawn a new goroutine in which it will read and process GPS data from the device.
+// Processed data will be available on the Fixes channel.
+//
+// Example
+//    dev, _ := gps.Open("/dev/ttyAMA0")
+//    dev.Watch()
+//    for fix := range dev.Fixes {
+//      fmt.Println(fix.Lat, fix.Lon)
+//    }
+//
+func (d *Device) Watch() {
   go watchDevice(d)
-  return
 }
 
+// Close stops data parsing. Once closed, a Device can't be opened again,
+// instead you will have to instantiate a new one.
+func (d *Device) Close() {
+  d.open = false
+}
+
+// FixTokens contain field names of specific NMEA sentences.
+// Newly added tokens are currently ignored.
 var FixTokens = map[string][]string{
   "$GPGGA": []string{"_", "Time", "Lat", "Lat", "Lon", "Lon", "Quality", "Satellites", "_", "Alt"},
   "$GPRMC": []string{"_", "Time", "Status", "Lat", "Lat", "Lon", "Lon", "Speed", "Angle"},
@@ -55,6 +79,12 @@ func watchDevice(d *Device) {
   var n int
 
   for {
+    if d.open == false {
+      d.file.Close()
+      close(d.Fixes)
+      return
+    }
+
     n++
     if n%200 == 0 {
       n = 1
