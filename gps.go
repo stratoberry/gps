@@ -120,7 +120,10 @@ func watchDevice(d *Device) {
         continue
       }
 
-      tokenized := tokenizeString(strings.TrimSpace(line))
+      tokenized, ok := tokenizeString(strings.TrimSpace(line))
+      if !ok {
+        continue
+      }
 
       t := parseInt(tokenized["Time"])
       if t < d.nextFix.Time {
@@ -160,12 +163,16 @@ func watchDevice(d *Device) {
   }
 }
 
-func tokenizeString(s string) map[string][]string {
+func tokenizeString(s string) (map[string][]string, bool) {
   parts := strings.Split(s, ",")
   result := make(map[string][]string)
   tokens, ok := FixTokens[parts[0]]
   if ok == false {
-    return result
+    return result, false
+  }
+
+  if len(parts) < len(tokens) {
+    return result, false
   }
 
   for i, token := range tokens {
@@ -174,7 +181,7 @@ func tokenizeString(s string) map[string][]string {
     }
   }
 
-  return result
+  return result, true
 }
 
 func parseLatLon(fields []string) (decimal float64) {
