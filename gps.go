@@ -179,10 +179,11 @@ func tokenizeString(s string) map[string][]string {
 
 func parseLatLon(fields []string) (decimal float64) {
   var (
-    err               error
-    msf               float64
-    deg               int
-    dms, dm, d, m, ms string
+    err          error
+    msf          float64
+    deg          int
+    dms          []string
+    dm, d, m, ms string
   )
 
   if len(fields) != 2 || len(fields[0]) == 0 {
