@@ -178,23 +178,31 @@ func tokenizeString(s string) map[string][]string {
 }
 
 func parseLatLon(fields []string) (decimal float64) {
-  var err error
-  var msf float64
-  var deg int
+  var (
+    err               error
+    msf               float64
+    deg               int
+    dms, dm, d, m, ms string
+  )
 
   if len(fields) != 2 || len(fields[0]) == 0 {
     return
   }
 
-  dms := strings.Split(fields[0], ".")
-  dm := dms[0]
-  d := dm[:len(dm)-2]
+  dms = strings.Split(fields[0], ".")
+  dm = dms[0]
+  d = dm[:len(dm)-2]
   if deg, err = strconv.Atoi(d); err != nil {
     return
   }
 
-  m := dm[len(d):]
-  ms := m + "." + dms[1]
+  m = dm[len(d):]
+  if len(dms) == 1 {
+    ms = m + ".0"
+  } else {
+    ms = m + "." + dms[1]
+  }
+
   if msf, err = strconv.ParseFloat(ms, 64); err != nil {
     return
   }
