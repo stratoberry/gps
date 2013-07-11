@@ -34,7 +34,7 @@ gps, on the other hand, is tuned for performance and minimal memory consumption.
 
 ## Documentation
 
-Inspect the `gps.go` file in this repository or take a look at [godocs](http://godoc.org/github.com/stratoberry/gps]).
+Inspect the `gps.go` file in this repository or take a look at [godocs](http://godoc.org/github.com/stratoberry/gps).
 
 To find out more about the Stratoberry Pi project, take a look at our web site: [stratoberry.foi.hr](http://stratoberry.foi.hr)
 
