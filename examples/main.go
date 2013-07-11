@@ -14,12 +14,7 @@ func main() {
 
   dev.Watch()
 
-  var n int = 1
   for fix := range dev.Fixes {
-    fmt.Println(fmt.Sprintf("%d Location: (%.5f,%.5f) Altitude:%.2fm Angle:%.2f", n, fix.Lat, fix.Lon, fix.Alt, fix.TrackAngle))
-    n++
-    if n == 10 {
-      dev.Close()
-    }
+    fmt.Println(fmt.Sprintf("Location: (%.8f,%.8f) Altitude:%.2fm Angle:%.2f", fix.Lat, fix.Lon, fix.Alt, fix.TrackAngle))
   }
 }

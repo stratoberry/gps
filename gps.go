@@ -45,6 +45,12 @@ type GPSFix struct {
   TrackAngle float64
 }
 
+// Compares two GPS fixes for equality.
+// Speed, Quality and Satellites fields are not checked.
+func (g *GPSFix) Equals(b *GPSFix) bool {
+  return g.Lat == b.Lat && g.Lon == b.Lon && g.Alt == b.Alt && g.TrackAngle == b.TrackAngle
+}
+
 // Open tries to access the specified device path
 func Open(path string) (dev *Device, err error) {
   dev = &Device{}
@@ -127,10 +133,14 @@ func watchDevice(d *Device) {
       d.nextFix.Lon = parseLatLon(tokenized["Lon"])
 
       if isGGA {
-        hasGGA = true
+        //hasGGA = true
         d.nextFix.Quality = parseInt(tokenized["Quality"])
         d.nextFix.Satellites = parseInt(tokenized["Satellites"])
-        d.nextFix.Alt = parseFloat(tokenized["Alt"])
+        alt := parseFloat(tokenized["Alt"])
+        if alt < d.nextFix.Alt-0.1 || alt > d.nextFix.Alt+0.1 {
+          d.nextFix.Alt = alt
+          hasGGA = true
+        }
       }
 
       if isRMC {
@@ -139,7 +149,7 @@ func watchDevice(d *Device) {
         d.nextFix.TrackAngle = parseLatLon(tokenized["TrackAngle"])
       }
 
-      if hasGGA && hasRMC {
+      if hasGGA && hasRMC && !d.nextFix.Equals(d.Fix) {
         d.Fixes <- d.nextFix
         d.Fix = d.nextFix
         d.nextFix = &GPSFix{}
