@@ -2,7 +2,6 @@ package gps
 
 import (
   "bufio"
-  _ "fmt"
   "math"
   "os"
   "runtime"
@@ -11,24 +10,39 @@ import (
 )
 
 type Device struct {
-  file         *os.File
-  reader       *bufio.Reader
-  open         bool
-  Fix, nextFix *GPSFix
+  file   *os.File
+  reader *bufio.Reader
+  open   bool
+
+  // Currently active GPSFix
+  Fix     *GPSFix
+  nextFix *GPSFix
 
   // Fixes will receive new GPS fixes. This channel is unbuffered.
   Fixes chan *GPSFix
 }
 
 type GPSFix struct {
-  Time                             int
-  Quality                          int
-  Satellites                       int
-  Lat, Lon, Alt, Speed, TrackAngle float64
-}
+  // Timestamp at which the fix was generated, format HHMMSS
+  Time int
 
-func (g *GPSFix) isComplete() bool {
-  return g.Quality != 0 && g.Satellites != 0 && g.Lat != 0.0 && g.Lon != 0.0 && g.Alt != 0.0
+  // Quality of GPS fix, 0 - invalid, 1 - GPS fix, 2 - DGPS fix (less accurate)
+  Quality int
+
+  // Number of satelltes in view
+  Satellites int
+
+  // Latitude, longitude
+  Lat, Lon float64
+
+  // Altitude in meters
+  Alt float64
+
+  // Speed over ground in knots
+  Speed float64
+
+  // Magnetic variation
+  TrackAngle float64
 }
 
 // Open tries to access the specified device path
@@ -72,11 +86,13 @@ func (d *Device) Close() {
 // Newly added tokens are currently ignored.
 var FixTokens = map[string][]string{
   "$GPGGA": []string{"_", "Time", "Lat", "Lat", "Lon", "Lon", "Quality", "Satellites", "_", "Alt"},
-  "$GPRMC": []string{"_", "Time", "Status", "Lat", "Lat", "Lon", "Lon", "Speed", "Angle"},
+  "$GPRMC": []string{"_", "Time", "Status", "Lat", "Lat", "Lon", "Lon", "Speed", "_", "_", "TrackAngle", "TrackAngle"},
 }
 
 func watchDevice(d *Device) {
   var n int
+  var hasGGA = false
+  var hasRMC = false
 
   for {
     if d.open == false {
@@ -111,20 +127,24 @@ func watchDevice(d *Device) {
       d.nextFix.Lon = parseLatLon(tokenized["Lon"])
 
       if isGGA {
+        hasGGA = true
         d.nextFix.Quality = parseInt(tokenized["Quality"])
         d.nextFix.Satellites = parseInt(tokenized["Satellites"])
         d.nextFix.Alt = parseFloat(tokenized["Alt"])
       }
 
       if isRMC {
+        hasRMC = true
         d.nextFix.Speed = parseFloat(tokenized["Speed"])
-        d.nextFix.TrackAngle = parseFloat(tokenized["Angle"])
+        d.nextFix.TrackAngle = parseLatLon(tokenized["TrackAngle"])
       }
 
-      if d.nextFix.isComplete() {
+      if hasGGA && hasRMC {
         d.Fixes <- d.nextFix
         d.Fix = d.nextFix
         d.nextFix = &GPSFix{}
+        hasGGA = false
+        hasRMC = false
       }
     }
   }
@@ -151,6 +171,10 @@ func parseLatLon(fields []string) (decimal float64) {
   var err error
   var msf float64
   var deg int
+
+  if len(fields) != 2 || len(fields[0]) == 0 {
+    return
+  }
 
   dms := strings.Split(fields[0], ".")
   dm := dms[0]
